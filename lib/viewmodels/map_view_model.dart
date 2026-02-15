@@ -202,6 +202,19 @@ class MapViewModel extends StateNotifier<MapState> {
     }
   }
 
+  /// 喫煙所を削除する
+  ///
+  /// [spotId] 削除する喫煙所のID
+  Future<void> deleteSpot({required String spotId}) async {
+    try {
+      await _spotRepository.deleteSpot(spotId: spotId);
+    } catch (e) {
+      state = state.copyWith(
+        errorMessage: '喫煙所の削除に失敗しました: $e',
+      );
+    }
+  }
+
   /// エラーメッセージをクリアする
   void clearError() {
     state = state.copyWith(clearError: true);

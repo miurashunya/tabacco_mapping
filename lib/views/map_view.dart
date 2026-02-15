@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../models/smoking_spot_model.dart';
@@ -37,11 +38,15 @@ class _MapViewState extends ConsumerState<MapView> {
   /// 屋外のみ表示フィルター
   bool _filterOutdoor = false;
 
+  /// ピン設置モード中かどうか
+  bool _isPlacingMode = false;
+
   @override
   void initState() {
     super.initState();
-    // ウィジェット構築後に初期データを読み込む
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // ウィジェット構築後に現在地へ移動してからデータを読み込む
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _moveToCurrentLocation();
       _loadSpots();
     });
   }
@@ -50,6 +55,44 @@ class _MapViewState extends ConsumerState<MapView> {
   void dispose() {
     _mapController.dispose();
     super.dispose();
+  }
+
+  /// ブラウザの位置情報許可を得て現在地に地図を移動する
+  /// 許可拒否や取得失敗の場合はデフォルト位置（東京）のまま継続する
+  Future<void> _moveToCurrentLocation() async {
+    try {
+      // 位置情報の許可状態を確認
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        // 未許可の場合はブラウザの許可ダイアログを表示
+        permission = await Geolocator.requestPermission();
+      }
+
+      // 許可が得られない場合はデフォルト位置のまま
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      // 現在地を取得（タイムアウト10秒）
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      final currentLatLng = LatLng(position.latitude, position.longitude);
+
+      if (!mounted) return;
+
+      // 地図を現在地に移動
+      setState(() => _center = currentLatLng);
+      _mapController.move(currentLatLng, _currentZoom);
+    } catch (_) {
+      // 取得失敗時はデフォルト位置（東京）のまま継続
+    }
   }
 
   /// 現在の地図位置周辺の喫煙所を読み込む
@@ -96,6 +139,30 @@ class _MapViewState extends ConsumerState<MapView> {
       // ボトムシートを閉じたら選択を解除
       ref.read(mapViewModelProvider.notifier).deselectSpot();
     });
+  }
+
+  /// ピン設置モードを開始する（ログイン確認付き）
+  void _enterPlacingMode() {
+    final user = ref.read(firebaseAuthProvider).valueOrNull;
+    if (user == null) {
+      _showLoginRequiredDialog();
+      return;
+    }
+    setState(() => _isPlacingMode = true);
+  }
+
+  /// ピン設置モードをキャンセルする
+  void _cancelPlacingMode() {
+    setState(() => _isPlacingMode = false);
+  }
+
+  /// 現在の中央座標で喫煙所追加ダイアログを表示する
+  void _confirmPlacingPosition() {
+    setState(() => _isPlacingMode = false);
+    showDialog(
+      context: context,
+      builder: (context) => AddSpotDialog(position: _center),
+    );
   }
 
   /// 喫煙所追加ダイアログを表示する（ログイン確認付き）
@@ -354,17 +421,102 @@ class _MapViewState extends ConsumerState<MapView> {
             ),
           ),
 
-          // 再検索ボタン（右下）
+          // 現在地ボタン（右下）
           Positioned(
             bottom: cookieConsent ? 96 : 184,
             right: 16,
             child: FloatingActionButton.small(
-              heroTag: 'reload',
-              onPressed: _loadSpots,
-              tooltip: '現在の範囲を再検索',
-              child: const Icon(Icons.refresh),
+              heroTag: 'my_location',
+              onPressed: () async {
+                await _moveToCurrentLocation();
+                _loadSpots();
+              },
+              tooltip: '現在地を表示',
+              child: const Icon(Icons.my_location),
             ),
           ),
+
+          // ピン設置モード: 画面中央に固定ピンを表示
+          if (_isPlacingMode)
+            IgnorePointer(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 吹き出しラベル
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        '地図を動かして位置を合わせてください',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // ピンアイコン（中心が地面に刺さるよう下にオフセット）
+                    const Icon(
+                      Icons.location_pin,
+                      color: Colors.red,
+                      size: 56,
+                    ),
+                    // ピンの影（接地感を出す）
+                    Container(
+                      width: 12,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    // ピンの高さ分の余白（中心がずれないよう調整）
+                    const SizedBox(height: 60),
+                  ],
+                ),
+              ),
+            ),
+
+          // ピン設置モード: 確定・キャンセルボタン
+          if (_isPlacingMode)
+            Positioned(
+              bottom: 32,
+              left: 24,
+              right: 24,
+              child: Row(
+                children: [
+                  // キャンセルボタン
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _cancelPlacingMode,
+                      icon: const Icon(Icons.close),
+                      label: const Text('キャンセル'),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // 確定ボタン
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: _confirmPlacingPosition,
+                      icon: const Icon(Icons.check),
+                      label: const Text('ここに追加'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Cookie同意バナー（未同意時に画面下部に表示）
           if (!cookieConsent)
@@ -412,15 +564,17 @@ class _MapViewState extends ConsumerState<MapView> {
         ],
       ),
 
-      // 喫煙所追加FAB
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'add_spot',
-        onPressed: () => _showAddSpotDialog(_center),
-        icon: const Icon(Icons.add_location_alt),
-        label: const Text('追加'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-      ),
+      // 喫煙所追加FAB（設置モード中は非表示）
+      floatingActionButton: _isPlacingMode
+          ? null
+          : FloatingActionButton.extended(
+              heroTag: 'add_spot',
+              onPressed: _enterPlacingMode,
+              icon: const Icon(Icons.add_location_alt),
+              label: const Text('追加'),
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
     );
   }
 

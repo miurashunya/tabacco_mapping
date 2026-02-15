@@ -98,6 +98,37 @@ class _SpotDetailSheetState extends ConsumerState<SpotDetailSheet> {
     );
   }
 
+  /// 削除確認ダイアログを表示して、確認後に喫煙所を削除する
+  Future<void> _confirmAndDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('喫煙所を削除'),
+        content: Text('「${widget.spot.name}」を削除しますか？\nこの操作は元に戻せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('削除', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await ref
+        .read(mapViewModelProvider.notifier)
+        .deleteSpot(spotId: widget.spot.id);
+
+    // ボトムシートを閉じる
+    if (mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -132,7 +163,7 @@ class _SpotDetailSheetState extends ConsumerState<SpotDetailSheet> {
                 ),
                 const SizedBox(height: 16),
 
-                // 喫煙所名と種別チップ
+                // 喫煙所名・種別チップ・削除ボタン
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -156,6 +187,25 @@ class _SpotDetailSheetState extends ConsumerState<SpotDetailSheet> {
                             ? Colors.blue[800]
                             : Colors.green[800],
                       ),
+                    ),
+                    // 投稿者本人にのみ削除ボタンを表示
+                    Builder(
+                      builder: (context) {
+                        final user =
+                            ref.watch(firebaseAuthProvider).valueOrNull;
+                        if (user == null ||
+                            user.uid != widget.spot.postedBy) {
+                          return const SizedBox.shrink();
+                        }
+                        return IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                          tooltip: '削除',
+                          onPressed: _confirmAndDelete,
+                        );
+                      },
                     ),
                   ],
                 ),

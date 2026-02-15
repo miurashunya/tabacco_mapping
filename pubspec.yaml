@@ -27,6 +27,9 @@ dependencies:
   # Geohash検索
   geoflutterfire_plus: ^0.0.31
 
+  # 現在地取得（Web対応）
+  geolocator: ^13.0.0
+
   # ローカルストレージ（Cookie同意保存）
   shared_preferences: ^2.3.2
 

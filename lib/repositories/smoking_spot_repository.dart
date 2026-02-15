@@ -83,4 +83,12 @@ class SmokingSpotRepository {
       'comments': FieldValue.arrayUnion([comment.toMap()]),
     });
   }
+
+  /// 喫煙所を削除する
+  ///
+  /// [spotId] 削除する喫煙所のID
+  /// Firestoreセキュリティルール側でも投稿者本人のみ許可している
+  Future<void> deleteSpot({required String spotId}) async {
+    await _collection.doc(spotId).delete();
+  }
 }
