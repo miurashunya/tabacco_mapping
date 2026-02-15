@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "955821461487",
+    "project_id": "tabacco-mapping",
+    "storage_bucket": "tabacco-mapping.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:955821461487:android:1eceaffa057c5ff9aff01a",
+        "android_client_info": {
+          "package_name": "tabaco.mapping"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAVbt3RvyZ5wZy_mTpKuKygvk9c3rxJTo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

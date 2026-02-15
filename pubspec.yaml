@@ -1,0 +1,48 @@
+name: tabacco_mapping
+description: "喫煙所共有マップアプリ - Flutter Web"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Firebase
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.2
+
+  # 状態管理
+  flutter_riverpod: ^2.6.1
+
+  # 地図（OpenStreetMap・無料・APIキー不要）
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Geohash検索
+  geoflutterfire_plus: ^0.0.31
+
+  # ローカルストレージ（Cookie同意保存）
+  shared_preferences: ^2.3.2
+
+  # ファイル選択（画像アップロード）
+  file_picker: ^8.1.2
+
+  # UUID生成
+  uuid: ^4.5.1
+
+  # 日付フォーマット
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
